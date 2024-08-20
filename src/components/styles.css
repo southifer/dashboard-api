@@ -1,0 +1,37 @@
+/* Define base and glowing styles */
+.glow {
+    transition: background-color 1s ease;
+  }
+  
+.glow-update {
+    background-color: rgb(255, 255, 255, 0.3); /* Semi-transparent yellow for glowing effect */
+}
+
+.table-container {
+  display: block;
+  position: relative;
+}
+
+.table-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-container thead {
+  display: block;
+  position: sticky;
+  top: 0;
+}
+
+.table-container tbody {
+  display: block;
+  max-height: calc(100vh - 210px); /* Adjust the height as needed */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.table-container th, .table-container td {
+  min-width: 120px; /* Adjust the minimum width as needed */
+  padding: 8px;
+  text-align: left;
+}
