@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import useWindowDimensions from './useWindowDimensions'; // Adjust the path if needed
+import UserStatisticsChart from './UserStatisticsChart';
+import Swal from 'sweetalert2';
+import ContextMenu from './ContextMenu'; // Import the ContextMenu component
+import { saveAs } from 'file-saver'; // Import file-saver library
+import Terminal from './Terminal';
+
 
 const Content = () => {
     const [users, setUsers] = useState([]);
@@ -8,9 +14,12 @@ const Content = () => {
     const [updatedCells, setUpdatedCells] = useState(new Set());
     const [selectedRows, setSelectedRows] = useState(new Set());
     const [selectAll, setSelectAll] = useState(false);
+    const [contextMenu, setContextMenu] = useState(null);
     const { width } = useWindowDimensions(); // Get the window width
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage] = useState(100); // Set the number of rows per page
+    const [lastSelectedIndex, setLastSelectedIndex] = useState(null);
+
     const [searchQueries, setSearchQueries] = useState({
         username: '',
         level: '',
@@ -67,18 +76,38 @@ const Content = () => {
 
     const formatNumber = (num) => new Intl.NumberFormat().format(num);
 
-    const handleSelectRow = (index) => {
-        setSelectedRows(prevSelectedRows => {
-            const newSelectedRows = new Set(prevSelectedRows);
-            if (newSelectedRows.has(index)) {
-                newSelectedRows.delete(index);
-            } else {
-                newSelectedRows.add(index);
+    const handleSelectRow = (index, event) => {
+        const isShiftClick = event?.shiftKey; // Optional chaining to avoid errors if event is undefined
+    
+        if (isShiftClick && lastSelectedIndex !== null) {
+            const newSelectedRows = new Set(selectedRows);
+            const start = Math.min(lastSelectedIndex, index);
+            const end = Math.max(lastSelectedIndex, index);
+    
+            for (let i = start; i <= end; i++) {
+                newSelectedRows.add(i);
             }
-            return newSelectedRows;
-        });
+    
+            setSelectedRows(newSelectedRows);
+        } else {
+            setSelectedRows(prevSelectedRows => {
+                const newSelectedRows = new Set(prevSelectedRows);
+                if (newSelectedRows.has(index)) {
+                    newSelectedRows.delete(index);
+                } else {
+                    newSelectedRows.add(index);
+                }
+                return newSelectedRows;
+            });
+        }
+    
+        setLastSelectedIndex(index);
     };
-
+    
+    const handleRowClass = (index) => {
+        return selectedRows.has(index) ? 'bg-gray-200' : '';
+    };
+    
     const handleSelectAll = () => {
         if (selectAll) {
             setSelectedRows(new Set()); // Deselect all
@@ -86,6 +115,13 @@ const Content = () => {
             setSelectedRows(new Set(users.map(user => user.index))); // Select all
         }
         setSelectAll(!selectAll); // Toggle selectAll state
+    };
+
+    const OnSelectAll = () => {
+        setSelectedRows(new Set(users.map(user => user.index)));  // Select all
+    };
+    const OnDeselectAll = () => {
+        setSelectedRows(new Set()); // Deselect all
     };
 
     const CustomCheckbox = ({ isChecked, onChange }) => {
@@ -118,6 +154,105 @@ const Content = () => {
         });
     };
 
+    const showAlert = (icon, title, text) => {
+        Swal.fire({
+        icon,
+        title,
+        text,
+        background: '#1e1e1e',
+        color: '#fff',
+        confirmButtonColor: '#404570',
+        customClass: {
+            popup: 'dark-popup',
+            title: 'dark-title',
+            content: 'dark-content',
+            confirmButton: 'dark-confirm-button',
+        },
+        });
+    };
+
+    const handleRowContextMenu = (e, index) => {
+        e.preventDefault();
+        setContextMenu({
+            position: {x: e.clientX, y: e.clientY},
+            index
+        })
+    };
+
+    const handleDelete = async () => {
+        if (selectedRows.size === 0) {
+            showAlert('warning', 'No Selection', 'No rows selected!');
+            return;
+        }
+
+        const confirmation = await Swal.fire({
+            icon: 'warning',
+            title: 'Are you sure?',
+            text: `You are about to delete ${selectedRows.size} row(s)!`,
+            showCancelButton: true,
+            confirmButtonColor: '#DC3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Delete',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                popup: 'dark-popup',
+                title: 'dark-title',
+                content: 'dark-content',
+                confirmButton: 'dark-confirm-button',
+            },
+        });
+
+        if (confirmation.isConfirmed) {
+
+            try {
+                const deleteRequests = Array.from(selectedRows).map(index =>
+                    axios.delete(`http://93.113.180.31:5000/api/users/${index}`)
+                );
+                await Promise.all(deleteRequests);
+
+                setUsers(users.filter(user => !selectedRows.has(user.index)));
+                setSelectedRows(new Set());
+
+                showAlert('success', 'Deleted', `${selectedRows.size} row(s) deleted successfully!`);
+            } catch (error) {
+                console.error('Error deleting selected rows:', error);
+                showAlert('error', 'Error', error.response?.data?.message || 'Failed to delete selected rows!');
+            }
+        }
+    };
+
+    const handleExport = async () => {
+        if (selectedRows.size === 0) {
+            Swal.fire('No Selection', 'No rows selected!', 'warning');
+            return;
+        }
+
+        const confirmation = await Swal.fire({
+            icon: 'info',
+            title: 'Are you sure?',
+            text: `You are about to export ${selectedRows.size} row(s)!`,
+            showCancelButton: true,
+            confirmButtonColor: '#DC3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'export',
+            cancelButtonText: 'cancel',
+        });
+    
+        if (confirmation.isConfirmed) {
+            // Collect data for the selected rows
+            const selectedData = users.filter(user => selectedRows.has(user.index));
+        
+            // Convert the data to a string format suitable for a .txt file
+            const dataStr = selectedData.map(user => `${user.username}|${user.age}`).join('\n');
+        
+            // Create a Blob and use file-saver to save it as a .txt file
+            const blob = new Blob([dataStr], { type: 'text/plain;charset=utf-8' });
+            saveAs(blob, 'export.txt');
+        
+            Swal.fire('Exported', 'Selected rows have been exported to export.txt', 'success');
+        }
+    };
+
     const totalUsers = users.length;
     const totalOnline = users.filter(user => user.status === 'Online').length;
     const totalOffline = users.filter(user => user.status !== 'Online').length;
@@ -139,15 +274,24 @@ const Content = () => {
     const handlePageChange = (page) => setCurrentPage(page);
 
     return (
-        <div className="p-6 bg-mainBg text-white min-h-screen">
-            <div className="grid grid-cols-1 gap-6 mb-4">
+        <div className="p-6 bg-mainBg text-white">
+            <div className="grid grid-cols-1 mb-4">
+                <Terminal></Terminal>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div className="bg-widgetBg p-5 rounded-lg shadow-md">
                     <p className="flex-grow text-xs font-bold text-gray-200 mb-2 uppercase">USER STATISTIC</p>
-                    <p>⌐ Online: {formatNumber(totalOnline)}</p>
-                    <p>⌐ Offline: {formatNumber(totalOffline)}</p>
-                    <p>⌐ Banned: {formatNumber(totalBanned)}</p>
-                    <p>⌐ Gems: {formatNumber(totalGems)}</p>
-                    <p>⌐ Average Gems: {formatNumber(avgGems)}</p>
+                    <p className='text-lg'>⌐ Online: {formatNumber(totalOnline)}</p>
+                    <p className='text-lg'>⌐ Offline: {formatNumber(totalOffline)}</p>
+                    <p className='text-lg'>⌐ Banned: {formatNumber(totalBanned)}</p>
+                    <p className='text-lg'>⌐ Gems: {formatNumber(totalGems)}</p>
+                    <p className='text-lg'>⌐ Average Gems: {formatNumber(avgGems)}</p>
+                </div>
+                <div className="bg-widgetBg p-5 rounded-lg shadow-md">
+                    <p className="flex-grow text-xs font-bold text-gray-200 mb-2 uppercase">USER CHART</p>
+                    <div className="bg-widgetBg p-4 rounded-lg">
+                        <UserStatisticsChart userData={users} />
+                    </div>
                 </div>
             </div>
             
@@ -156,13 +300,23 @@ const Content = () => {
                     <div className="sticky top-0 bg-bg-widgetBg p-2" style={{ zIndex: 20, backgroundColor: '#181A20' }}>
                         <p style={{ fontSize: '0.7rem' }}>selected bot <u>x{selectedRows.size}</u></p>
                     </div>
-                    <div className="max-w-full max-h-[900px] overflow-x-auto custom-scrollbar" style={{ maxWidth: `${maxTableWidth}px` }}>
+                    <div className="max-w-full max-h-[500px] overflow-x-auto custom-scrollbar" style={{ maxWidth: `${maxTableWidth}px` }}>
+
+                        {contextMenu && (
+                            <ContextMenu
+                                position={contextMenu.position}
+                                onClose={() => setContextMenu(null)}
+                                onDelete={handleDelete}
+                                onExport={handleExport}
+                                onSelectAll={OnSelectAll}
+                                onDeselectAll={OnDeselectAll}
+                            />
+                        )}
 
                         <table className="min-w-full divide-y divide-gray-700 " style={{ width: '100%' }}>
-                            <thead className='border-b-2 border-[#181A20]' style={{ marginBottom:'8px', position: 'sticky', top: 0, backgroundColor: '#181A20', zIndex: 10, marginBottom: '50px' }}>
+                            <thead className='border-b-2 border-[#181A20]' style={{ position: 'sticky', top: 0, backgroundColor: '#181A20', zIndex: 10, marginBottom: '50px' }}>
                                 <tr>
-                                    <th className="px-2 py-1 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
-                                    </th>
+                                    <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"></th>
                                     <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Username</th>
                                     <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Level</th>
                                     <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Ping</th>
@@ -183,13 +337,13 @@ const Content = () => {
                                             onChange={handleSelectAll}
                                         />
                                     </th>
-                                    <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                                    <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider" >
                                         <input
                                             name="username"
                                             type="text"
                                             value={searchQueries.username}
                                             onChange={handleSearchChange}
-                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            className="max-w-[100px] mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0 "
                                             placeholder=""
                                         />
                                     </th>
@@ -199,7 +353,7 @@ const Content = () => {
                                             type="text"
                                             value={searchQueries.level}
                                             onChange={handleSearchChange}
-                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            className="max-w-[60px] mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
                                             placeholder=""
                                         />
                                     </th>
@@ -209,7 +363,7 @@ const Content = () => {
                                             type="text"
                                             value={searchQueries.ping}
                                             onChange={handleSearchChange}
-                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            className="max-w-[60px] mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
                                             placeholder=""
                                         />
                                     </th>
@@ -219,7 +373,7 @@ const Content = () => {
                                             type="text"
                                             value={searchQueries.status}
                                             onChange={handleSearchChange}
-                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            className="max-w-[130px] mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
                                             placeholder=""
                                         />
                                     </th>
@@ -229,7 +383,7 @@ const Content = () => {
                                             type="text"
                                             value={searchQueries.rotation_status}
                                             onChange={handleSearchChange}
-                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            className="max-w-[140px] mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
                                             placeholder=""
                                         />
                                     </th>
@@ -259,7 +413,7 @@ const Content = () => {
                                             type="text"
                                             value={searchQueries.position}
                                             onChange={handleSearchChange}
-                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            className="max-w-[50px] mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
                                             placeholder=""
                                         />
                                     </th>
@@ -269,7 +423,7 @@ const Content = () => {
                                             type="text"
                                             value={searchQueries.gems}
                                             onChange={handleSearchChange}
-                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            className="max-w-[110px] mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
                                             placeholder=""
                                         />
                                     </th>
@@ -279,7 +433,7 @@ const Content = () => {
                                             type="text"
                                             value={searchQueries.playtime}
                                             onChange={handleSearchChange}
-                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            className="max-w-[100px] mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
                                             placeholder=""
                                         />
                                     </th>
@@ -289,7 +443,7 @@ const Content = () => {
                                             type="text"
                                             value={searchQueries.online_time}
                                             onChange={handleSearchChange}
-                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            className="max-w-[100px] mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
                                             placeholder=""
                                         />
                                     </th>
@@ -299,7 +453,7 @@ const Content = () => {
                                             type="text"
                                             value={searchQueries.age}
                                             onChange={handleSearchChange}
-                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            className="max-w-[90px] mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
                                             placeholder=""
                                         />
                                     </th>
@@ -308,7 +462,12 @@ const Content = () => {
 
                             <tbody className="divide-y divide-gray-700" style={{ marginTop: '8px' }}>
                                 {currentUsers.map((user) => (
-                                    <tr key={user.index}>
+                                    <tr 
+                                        key={user.index} 
+                                        className={`bg-[#181A20] cursor-pointer ${selectedRows.has(user.index) ? 'bg-[#222A31]' : ''}`}
+                                        onClick={() => handleSelectRow(user.index)}
+                                        onContextMenu={(e) => handleRowContextMenu(e, user.index)}
+                                    >
                                         <td className="px-4 py-2 whitespace-nowrap text-center text-sm">
                                             <CustomCheckbox
                                                 isChecked={selectedRows.has(user.index)}
@@ -349,7 +508,7 @@ const Content = () => {
                                             {user.online_time}
                                         </td>
                                         <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 glow ${updatedCells.has(`${user.index}-age`) ? 'glow-update' : ''}`}>
-                                            {formatNumber(user.age)} days
+                                            {(user.age)} days
                                         </td>
                                     </tr>
                                 ))}

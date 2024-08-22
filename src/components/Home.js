@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+
 const Home = () => {
     const [users, setUsers] = useState([]);
 
@@ -26,7 +27,6 @@ const Home = () => {
                     <p className='text-white'>⌐ bot: x<strong>{users.length}</strong></p>
                 </div>
             </div>
-            
         </div>
     );
 };
