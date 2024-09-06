@@ -216,7 +216,7 @@ const World = () => {
 
             try {
                 const deleteRequests = Array.from(selectedRows).map(index =>
-                    axios.delete(`http://93.113.180.31:5000/api/worlds/${index}`)
+                    axios.delete(`http://135.125.191.88:5000/api/worlds/${index}`)
                 );
                 await Promise.all(deleteRequests);
 

@@ -28,6 +28,7 @@ const Content = () => {
         rotation_status: '',
         proxy: '',
         world: '',
+        malady: '',
         position: '',
         gems: '',
         playtime: '',
@@ -38,7 +39,7 @@ const Content = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await axios.get('http://93.113.180.31:5000/api/users');
+                const response = await axios.get('http://135.125.191.88:5000/api/users');
                 const newUsers = response.data;
                 const newUpdatedCells = new Set();
 
@@ -324,6 +325,7 @@ const Content = () => {
                                     <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Rotation</th>
                                     <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Proxy</th>
                                     <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">World</th>
+                                    <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Malady</th>
                                     <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Position</th>
                                     <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Gems</th>
                                     <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Playtime</th>
@@ -402,6 +404,16 @@ const Content = () => {
                                             name="world"
                                             type="text"
                                             value={searchQueries.world}
+                                            onChange={handleSearchChange}
+                                            className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
+                                            placeholder=""
+                                        />
+                                    </th>
+                                    <th className="px-2 py-1 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                                        <input
+                                            name="malady"
+                                            type="text"
+                                            value={searchQueries.malady}
                                             onChange={handleSearchChange}
                                             className="mt-1 px-2 py-1 bg-[#0F1015] border border-gray-600 rounded text-xs text-gray-400 focus:outline-none focus:ring-0"
                                             placeholder=""
@@ -494,6 +506,9 @@ const Content = () => {
                                         </td>
                                         <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 glow ${updatedCells.has(`${user.index}-world`) ? 'glow-update' : ''}`}>
                                             {user.world}
+                                        </td>
+                                        <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 glow ${updatedCells.has(`${user.index}-world`) ? 'glow-update' : ''}`}>
+                                            {user.malady}
                                         </td>
                                         <td className={`px-4 py-2 whitespace-nowrap text-sm text-gray-300 glow ${updatedCells.has(`${user.index}-position`) ? 'glow-update' : ''}`}>
                                             {user.position}

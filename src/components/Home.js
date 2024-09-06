@@ -7,7 +7,7 @@ const Home = () => {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const response = await axios.get('http://93.113.180.31:5000/api/users');
+                const response = await axios.get('http://135.125.191.88:5000/api/users');
                 console.log(response)
                 setUsers(response.data);
             } catch (error) {

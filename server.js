@@ -15,11 +15,12 @@ const app = express();
 const port = 5000;
 
 const db = mysql.createConnection({
-    host: '93.113.180.31',
+    host: 'localhost',
     user: 'root',
     password: 'sayasenang@123', // Update with your database password
     database: 'noir' // Update with your database name
 });
+
 
 // Connect to MySQL
 db.connect(err => {
@@ -57,12 +58,12 @@ app.post('/api/users', (req, res) => {
             // Record exists, update it
             const updateQuery = `
                 UPDATE users
-                SET username = ?, level = ?, ping = ?, status = ?, rotation_status = ?, proxy = ?, world = ?, position = ?, gems = ?, obtained_gems = ?, playtime = ?, online_time = ?, age = ?
+                SET username = ?, level = ?, ping = ?, status = ?, rotation_status = ?, proxy = ?, world = ?, malady = ? , position = ?, gems = ?, playtime = ?, online_time = ?, age = ?
                 WHERE \`index\` = ?
             `;
             const updateValues = [
                 user.username, user.level, user.ping, user.status, user.rotation_status,
-                user.proxy, user.world, user.position, user.gems, user.obtained_gems,
+                user.proxy, user.world, user.malady, user.position, user.gems, 
                 user.playtime, user.online_time, user.age, user.index
             ];
             db.query(updateQuery, updateValues, (err, results) => {
@@ -75,7 +76,7 @@ app.post('/api/users', (req, res) => {
         } else {
             // Record does not exist, insert new
             const insertQuery = `
-                INSERT INTO users (\`index\`, username, level, ping, status, rotation_status, proxy, world, position, gems, obtained_gems, playtime, online_time, age)
+                INSERT INTO users (\`index\`, username, level, ping, status, rotation_status, proxy, world, position, malady, gems, playtime, online_time, age)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             const insertValues = [
